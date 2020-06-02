@@ -1,0 +1,227 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+
+
+Parameters:
+  S3BucketLambda:
+    Type: String
+    Description: The S3 bucket location where the lambda deployment package is
+    Default: ktohio
+  KDAAppName:
+    Type: String
+    Description: KDA App Name
+    Default: kdascaling
+  KinesisStreamName:
+    Type: String
+    Description: Kinesis Stream Name
+    Default: KDAScalingTestStream
+  MaxKPUs:
+    Type: String
+    Description: Max KPUs
+    Default: 32
+  KDAParallelism:
+    Type: String
+    Description: Initial parallelism
+    Default: 1
+
+
+Resources:
+
+  CustomApplicationAutoScalingServiceRole:
+    DependsOn: ScalerApi
+    Type: 'AWS::IAM::Role'
+    Properties: 
+      AssumeRolePolicyDocument: 
+        Version: '2012-10-17'
+        Statement: 
+          - 
+            Effect: 'Allow'
+            Principal: 
+              Service: 
+                - 'custom-resource.application-autoscaling.amazonaws.com'
+            Action: 
+              - 'sts:AssumeRole'
+      Path: "/"
+      Policies: 
+        - 
+          PolicyName: 'root'
+          PolicyDocument: 
+            Version: "2012-10-17"
+            Statement: 
+              - 
+                Effect: 'Allow'
+                Action:
+                  - 'execute-api:Invoke*'
+                  - 'cloudwatch:PutMetricAlarm'
+                  - 'cloudwatch:DescribeAlarms'
+                  - 'cloudwatch:DeleteAlarms'
+                Resource: '*'
+
+  LambdaScaler:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Handler: index.lambda_handler
+      Runtime: python3.6
+      Timeout: 10
+      CodeUri: 
+        Bucket: !Ref S3BucketLambda
+        Key: kdattscalinglambda/index.zip        
+      Policies:
+        - AWSCloudFormationReadOnlyAccess
+        - Statement:
+          - Sid: MySSMPolicy
+            Effect: Allow
+            Action:
+            - 'ssm:PutParameter'
+            - 'ssm:GetParameters'
+            - 'ssm:GetParameter'
+            Resource: '*'
+        - Statement:
+          - Sid: MyCWMetricPolicy
+            Effect: Allow
+            Action:
+            - 'cloudwatch:PutMetricAlarm'
+            Resource: '*'
+        - Statement:
+          - Sid: AmazonKinesisAnalyticsPolicyForAppAutoScaling
+            Effect: Allow
+            Action:
+            - 'kinesisanalytics:UpdateApplication'
+            - 'kinesisanalytics:DescribeApplication'
+            Resource: '*'
+        - Statement:
+          - Sid: AppAutoscalingFullPolicy
+            Effect: Allow
+            Action:
+            - 'application-autoscaling:*'
+            Resource: '*'
+      Environment:
+        Variables:
+          ParameterStore: !Ref KDADesiredCapacityParameter
+          KDAAppName: !Ref KDAAppName
+          KinesisStreamName: !Ref KinesisStreamName
+          MaxKPUs: !Ref MaxKPUs
+      Events:
+        KinesisAPI:
+          Type: Api
+          Properties:
+            Path: /scalableTargetDimensions/{scalableTargetDimensionId}
+            Method: GET
+            RestApiId: !Ref ScalerApi
+        KinesisAPIPatch:
+          Type: Api
+          Properties:              
+            Path: /scalableTargetDimensions/{scalableTargetDimensionId}
+            Method: PATCH                      
+            RestApiId: !Ref ScalerApi
+
+  ScalerApi:
+    #DeletionPolicy: Retain
+    Type: AWS::Serverless::Api
+    Properties:
+        StageName: prod
+        DefinitionBody:
+          swagger: 2.0
+          info:
+            title:
+              Ref: AWS::StackName
+          securityDefinitions:
+            sigv4:
+              type: apiKey
+              name: Authorization
+              in: header
+              x-amazon-apigateway-authtype: awsSigv4
+          paths:
+            "/scalableTargetDimensions/{scalableTargetDimensionId}":
+              get:
+                security:
+                  - sigv4: []                
+                x-amazon-apigateway-any-method:
+                  produces:
+                    - application/json
+                  consumes:
+                    - application/json
+                x-amazon-apigateway-integration:
+                  httpMethod: POST
+                  type: aws_proxy
+                  uri:
+                    Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaScaler.Arn}/invocations
+                responses: {} 
+
+              patch:              
+                security:
+                  - sigv4: []                                
+                x-amazon-apigateway-any-method:
+                  security:
+                    - sigv4: []
+                  produces:
+                    - application/json
+                  consumes:
+                    - application/json
+                x-amazon-apigateway-integration:
+                  httpMethod: POST
+                  type: aws_proxy
+                  uri:
+                    Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaScaler.Arn}/invocations
+                responses: {} 
+
+  KDADesiredCapacityParameter:
+    Type: "AWS::SSM::Parameter"
+    Properties:
+      Type: "String"
+      Value: !Ref KDAParallelism
+      Description: "Store DesiredCapacity in Parameter Store"
+      AllowedPattern: "[0-9]+"
+
+  KDAScalableTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    DependsOn: LambdaScaler
+    DependsOn: ScalerApi
+    DependsOn: CustomApplicationAutoScalingServiceRole
+    Properties:
+      MaxCapacity: 32
+      MinCapacity: 1
+      ResourceId: !Sub https://${ScalerApi}.execute-api.${AWS::Region}.amazonaws.com/prod/scalableTargetDimensions/${KDAAppName}
+      RoleARN: !Sub ${CustomApplicationAutoScalingServiceRole.Arn}
+      ScalableDimension: 'custom-resource:ResourceType:Property'
+      ServiceNamespace: custom-resource
+
+  # For the target tracking policy below, we need a utilization metric
+  # as described in https://github.com/aws/aws-auto-scaling-custom-resource
+  # "The value of the metric must increase or decrease in inverse proportion to
+  # the number of capacity units. That is, the value of the metric should decrease
+  # when capacity increases and increase when capacity decreases."
+  # For KDA, we need a custom metric that satisfies this criterion
+  KDATrackingTrackingPolicy:
+    Type : AWS::ApplicationAutoScaling::ScalingPolicy
+    DependsOn: KDAScalableTarget
+    Properties:
+      PolicyName: KDATargetTracking
+      PolicyType: TargetTrackingScaling
+      ResourceId: !Sub https://${ScalerApi}.execute-api.${AWS::Region}.amazonaws.com/prod/scalableTargetDimensions/${KDAAppName}      
+      ScalableDimension: "custom-resource:ResourceType:Property"
+      ServiceNamespace: custom-resource
+      TargetTrackingScalingPolicyConfiguration:
+        TargetValue: 1
+        ScaleInCooldown: 60
+        ScaleOutCooldown: 60
+        CustomizedMetricSpecification:
+          MetricName: millisBehindLatest
+          Namespace: AWS/KinesisAnalytics
+          Dimensions:
+          - Name: Id
+            Value: KDAScalingTestStream
+          - Name: Application
+            Value: kdascaling
+          - Name: Flow
+            Value: Input
+          Statistic: Average
+
+Outputs:
+  URL:
+    Description: the URL
+    Value: !Sub https://${ScalerApi}.execute-api.${AWS::Region}.amazonaws.com/prod/scalableTargetDimensions/${KDAAppName}
+  CustomAASServiceRoleArn:
+    Description: Custom AASService Role Arn
+    Value: !Sub ${CustomApplicationAutoScalingServiceRole.Arn}
