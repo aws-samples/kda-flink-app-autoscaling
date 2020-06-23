@@ -203,7 +203,7 @@ Resources:
       ScalableDimension: "custom-resource:ResourceType:Property"
       ServiceNamespace: custom-resource
       TargetTrackingScalingPolicyConfiguration:
-        TargetValue: 1
+        TargetValue: 60000
         ScaleInCooldown: 60
         ScaleOutCooldown: 60
         CustomizedMetricSpecification:
