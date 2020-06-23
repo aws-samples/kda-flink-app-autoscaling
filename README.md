@@ -11,7 +11,7 @@ You may be wondering: "Why use Application Autoscaling; why not just trigger a L
 
 ### Application autoscaling of custom resource
 
-Application autoscaling allows users to scale in/out custom resources by specifying a custom endpoint that can be invoked by Application Autoscaling. In this example, this custom endpoint is implemented using API Gateway and an AWS Lambda function. Here's a high level flow depicting this approach:
+AWS Application autoscaling allows users to scale in/out custom resources by specifying a custom endpoint that can be invoked by Application Autoscaling. In this example, this custom endpoint is implemented using API Gateway and an AWS Lambda function. Here's a high level flow depicting this approach:
 
 CW Alarm => Application Autoscaling => Custom Endpoint (API GW + Lambda) => Scale KDA App
 
