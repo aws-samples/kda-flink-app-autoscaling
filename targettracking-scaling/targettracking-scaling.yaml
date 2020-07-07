@@ -7,15 +7,12 @@ Parameters:
   S3BucketLambda:
     Type: String
     Description: The S3 bucket location where the lambda deployment package is
-    Default: ktohio
   KDAAppName:
     Type: String
     Description: KDA App Name
-    Default: kdascaling
   KinesisStreamName:
     Type: String
     Description: Kinesis Stream Name
-    Default: KDAScalingTestStream
   MaxKPUs:
     Type: String
     Description: Max KPUs
