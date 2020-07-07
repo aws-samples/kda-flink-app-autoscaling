@@ -177,7 +177,7 @@ Resources:
     DependsOn: ScalerApi
     DependsOn: CustomApplicationAutoScalingServiceRole
     Properties:
-      MaxCapacity: 32
+      MaxCapacity: !Ref MaxKPUs
       MinCapacity: 1
       ResourceId: !Sub https://${ScalerApi}.execute-api.${AWS::Region}.amazonaws.com/prod/scalableTargetDimensions/${KDAAppName}
       RoleARN: !Sub ${CustomApplicationAutoScalingServiceRole.Arn}
