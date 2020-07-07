@@ -208,9 +208,9 @@ Resources:
           Namespace: AWS/KinesisAnalytics
           Dimensions:
           - Name: Id
-            Value: KDAScalingTestStream
+            Value: !Ref KinesisStreamName
           - Name: Application
-            Value: kdascaling
+            Value: !Ref KDAAppName
           - Name: Flow
             Value: Input
           Statistic: Average
