@@ -7,6 +7,7 @@ Parameters:
   S3BucketLambda:
     Type: String
     Description: The S3 bucket location where the lambda deployment package is
+    Default: ktohio
   CloudWatchAlarmNameOut:
     Type: String
     Description: Alarm name for CloudWatch Alarm scale out
@@ -18,9 +19,11 @@ Parameters:
   KDAAppName:
     Type: String
     Description: KDA App Name
+    Default: kdascaling
   KinesisStreamName:
     Type: String
     Description: Kinesis Stream Name
+    Default: KDAScalingTestStream
   ThroughputPerKPU:
     Type: String
     Description: Max throughput per KPU
@@ -290,6 +293,8 @@ Resources:
       ComparisonOperator: LessThanOrEqualToThreshold
       EvaluationPeriods: 2
       Threshold: 0
+      AlarmActions:
+        - !Ref KDAAutoScalingPolicyIn
       Metrics:
       - Expression: ir/60
         Id: ad1
