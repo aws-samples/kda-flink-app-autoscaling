@@ -1,3 +1,8 @@
+--------
+>  #### 🚨 August 30, 2023: Amazon Kinesis Data Analytics has been renamed to [Amazon Managed Service for Apache Flink](https://aws.amazon.com/managed-service-apache-flink).
+
+--------
+
 
 ## Overview
 This sample is meant to help users auto-scale their [Kinesis Data Analytics for Java](https://aws.amazon.com/kinesis/data-analytics/) (KDA) applications using [AWS Application Autoscaling](https://docs.aws.amazon.com/autoscaling/application/userguide/what-is-application-auto-scaling.html). KDA currently only supports CPU based autoscaling, and readers can use the guidance in this repo to scale their KDA applications based on other signals - such as operator throughput, for instance.
