@@ -1,5 +1,5 @@
 --------
->  #### 🚨 THIS REPOSITORY IS OBSELETE. For an up-to-date implemetation refer to this repository https://github.com/aws-samples/amazon-managed-service-for-apache-flink-examples/tree/main/infrastructure
+>  #### 🚨 THIS REPOSITORY IS OBSOLETE. For an up-to-date implemetation refer to this repository https://github.com/aws-samples/amazon-managed-service-for-apache-flink-examples/tree/main/infrastructure
 
 --------
 
