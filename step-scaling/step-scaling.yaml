@@ -290,6 +290,8 @@ Resources:
       ComparisonOperator: LessThanOrEqualToThreshold
       EvaluationPeriods: 2
       Threshold: 0
+      AlarmActions:
+        - !Ref KDAAutoScalingPolicyIn
       Metrics:
       - Expression: ir/60
         Id: ad1
